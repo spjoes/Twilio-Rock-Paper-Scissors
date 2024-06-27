@@ -53,7 +53,10 @@ app.all("/join", (req, res) => {
 
     if(room.players.length < 2) {
         const playerId = `${lastFour}`;
-        room.players.push(playerId);
+        room.players.push({
+            "playerId": playerId,
+            "playerNumber": `player${room.players.length + 1}`
+        });
         room.choices[playerId] = null;
 
         if(room.players.length === 2) {
@@ -82,7 +85,7 @@ app.all("/wait", (req, res) => {
         twiml.redirect(`/play?room=${roomCode}&player=${playerId}`);
     } else {
         twiml.say('Still waiting for another player.');
-        twiml.pause({ length: 5 });
+        twiml.pause({ length: 1 });
         twiml.redirect(`/wait?room=${roomCode}&player=${playerId}`);
     }
 
@@ -115,17 +118,23 @@ app.all("/choice", (req, res) => {
     const choice = req.body.Digits;
 
     const room = rooms[roomCode];
-    room.choices[playerId] = choice;
+    if(choice == '1' || choice == '2' || choice == '3') room.choices[playerId] = choice;;
+
+    console.log("--------------------")
+    console.log(room)
+    console.log("--------------------")
 
     if (Object.values(room.choices).every(choice => choice !== null)) {
         // Both players have made their choices, determine the winner
-        const [player1, player2] = room.players;
+        // const [player1, player2] = room.players;
+        const player1 = room.players[0].playerId;
+        const player2 = room.players[1].playerId;
         const choice1 = room.choices[player1];
         const choice2 = room.choices[player2];
         const result = determineWinner(choice1, choice2);
 
-        twiml.say(`Player 1 chose ${getChoiceName(choice1)}.`);
-        twiml.say(`Player 2 chose ${getChoiceName(choice2)}.`);
+        twiml.say(`"${insertCharacter(player1, 1).join(' ')}". chose ${getChoiceName(choice1)}.`);
+        twiml.say(`"${insertCharacter(player2, 1).join(' ')}". chose ${getChoiceName(choice2)}.`);
 
         if (result === 0) {
             twiml.say('It\'s a tie!');
@@ -136,11 +145,12 @@ app.all("/choice", (req, res) => {
         }
 
         // Clear the room
-        startClearRoom(roomCode)
+        // startClearRoom(roomCode)
     } else {
         // Wait for the other player to make their choice
         twiml.say('Waiting for the other player.');
-        twiml.redirect(`/waitChoice?room=${roomCode}&player=${playerId}`);
+        twiml.pause({ length: 1 });
+        twiml.redirect(`/choice?room=${roomCode}&player=${playerId}`);
     }
 
     res.send(twiml.toString());
@@ -159,7 +169,7 @@ app.all("/waitChoice", (req, res) => {
     const playerId = req.query.player;
 
 
-    if(!rooms[roomCode].choices || rooms[roomCode].choices === undefined) return;
+    // if(!rooms[roomCode].choices || rooms[roomCode].choices === undefined) return;
     if (Object.values(rooms[roomCode].choices).every(choice => choice !== null)) {
         twiml.redirect(`/choice?room=${roomCode}&player=${playerId}`);
     } else {
